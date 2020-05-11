@@ -29,9 +29,6 @@ class InvalidMoveRequest(Exception):
       return(self.args)
 
 
-def move_folder_to_team_drive(folder_id, drive_id=None):
-    pass
-
 class GDrive():
     def __init__(self):
         self.my_drive = "0AJzA_NPQBPA2Uk9PVA"
@@ -149,6 +146,66 @@ class GDrive():
         query["q"] = "'{0}' in parents".format(query["folder_id"])
         files_list = self.my_drive_files(query)
         return files_list
+
+    def create_tree(self, folder_obj, files_list):
+        """ A helper function for folder_structure. It takes in a
+        folder_obj which is dictionary with keys 'id, name, 
+        folder_list, file_list' where 'id, name' are preassigned 
+        and 'folder_list, file_list' are empty lists. files_list
+        parameter takes a list of file dictionary with keys 'id, name,
+        mimeType, parents'.
+        """
+        file_list = []
+        folder_list = []
+        for file in files_list:
+            if folder_obj["id"] in file["parents"]:
+                if file["mimeType"] == "application/vnd.google-apps.folder":
+                    sub_folder_obj = {
+                        "id": file["id"],
+                        "name": file["name"],
+                        "folder_list": [],
+                        "file_list": []
+                    }
+                    sub_folder_obj = self.create_tree(sub_folder_obj, files_list)
+                    folder_list.append(sub_folder_obj)
+                else:
+                    file_list.append(file)
+        folder_obj["folder_list"] = folder_list
+        folder_obj["file_list"] = file_list
+        return folder_obj
+
+    def folder_structure(self, query):
+        """ Returns a folder dictionary with keys 'id, name,
+        folder_list, file_list'. 'id' and 'name' are the id
+        and name of the folder. 'file_list' is the list of file
+        dictionaries that are directly inside the folder each with
+        keys 'id, name, mimeType, parents'. 'folder_list' is a list
+        of other folders that are directly inside the folder and have
+        hte same structure as the returned folder since the tree is
+        created by recursively calling the create_tree function on
+        each folder itself.
+        """
+        """ Examples
+            print(json.dumps(gdrive.folder_structure({"id": "0AJzA_NPQBPA2Uk9PVA"}), indent=1)) # Structure My Drive
+            print(json.dumps(gdrive.folder_structure({"id": "130Fg8G3OAi1PCxsbAtRa_LRBl2KN_R7S"}), indent=1)) # Structure a folder in My Drive
+            print(json.dumps(gdrive.folder_structure({"id": "1osD87uCuEMRgIQO-EnfIy-WmCf4pTxxe", "drive_id": "0AM-sdiio-Y-0Uk9PVA"}), indent=1)) # Structure a folder in Shared Drive
+            print(json.dumps(gdrive.folder_structure({"id": "0AM-sdiio-Y-0Uk9PVA", "drive_id": "0AM-sdiio-Y-0Uk9PVA"}), indent=1)) # Structure Shared Drive
+        """
+        if query.get("id", None) is None:
+            raise InvalidIdError("Invalid Id specified")
+        if query.get("drive_id", None) is None:
+            files_list = self.my_drive_files(query={"fields":"id, name, mimeType, parents"})
+        else:
+            files_list = self.my_drive_files(query={"id": query["drive_id"], "fields":"id, name, mimeType, parents"})
+        folder_meta = self.file_metadata(query={"id":query["id"], "fields":"id, name, mimeType, parents"})
+        folder_obj = {
+            "id": folder_meta["id"],
+            "name": folder_meta["name"],
+            "folder_list": [],
+            "file_list": []
+        }
+        folder_obj = self.create_tree(folder_obj, files_list)
+        return folder_obj
 
     def file_metadata(self, query={}):
         """ Returns the meta data of files by specify id, fields, fetch_all in a dictionary.
