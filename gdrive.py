@@ -175,7 +175,9 @@ class GDrive():
         return folder_obj
 
     def folder_structure(self, query):
-        """ Returns a folder dictionary with keys 'id, name,
+        """ Takes in a query dictionary with 'id' as a key of folder
+        and 'drive_id' as the key of the Shared Drive if in any.
+        Returns a folder dictionary with keys 'id, name,
         folder_list, file_list'. 'id' and 'name' are the id
         and name of the folder. 'file_list' is the list of file
         dictionaries that are directly inside the folder each with
@@ -228,10 +230,10 @@ class GDrive():
         return file
 
     def create(self, file_metadata):
-        """ Creates and returns the json fields for id with other file_metadata.
-        Specify the the parents attribute with id as a list to create the file 
-        with any mimeType in the specified parent. The parent can be a folder, 
-        My Drive or a folder or a shared drive itself. 
+        """ Creates a file of given name, mimeType and returns the json fields for
+        id with other file_metadata as requested. Specify the the parents key with
+        'id' of parent in a list to create the file in the specified parent.
+        The parent can be a folder, My Drive or a folder or a shared drive itself. 
         """
         """ Examples
             print(gdrive.create({"name": "Hello.txt", "mimeType": "application/vnd.google-apps.folder"}))
@@ -245,7 +247,7 @@ class GDrive():
         return file
 
     def move_file(self, query):
-        """ Specify the file_id which is to be moved and the folder id 
+        """ Specify the file_id which is to be moved and the folder_id
         where it is to be moved. The folder_id can be of any folder
         in My Drive, Shared Drive or the My Drive or Shared Drive itself. 
         Returns the id, parents of the file after the move operation.
@@ -267,9 +269,54 @@ class GDrive():
                                             supportsAllDrives=True,
                                             supportsTeamDrives=True).execute()
         return file
+    
+    def move_folder(self, folder_obj, parent_id):
+        """ Takes in a 'folder_obj' as returned by the 
+        folder_structure function, the 'parent_id' of the 
+        location where it is to be moved.
+        Moves a folder with the same structure as it exists
+        into another folder of My Drive, Shared Drive or My Drive
+        and Shared Drive themselves. 
+        """
+        """ Examples
+            # Obtain a folder structure
+            folder = gdrive.folder_structure(query={"id": "1hvz9w5rXltrckGaH986uck_iOh1vxAmJ", "drive_id": "0AM-sdiio-Y-0Uk9PVA"})
+            gdrive.move_folder(folder_obj=folder, parent_id="1J-C98GtbRh7jLMy_a4BfQVUNMtUOXUqp") # Parent is some folder in My Drive
+            gdrive.move_folder(folder_obj=folder, parent_id="0AM-sdiio-Y-0Uk9PVA") # Here the parent_id is of a Shared Drive
+            gdrive.move_folder(folder_obj=folder, parent_id="1Vx2wp5oWSJGhgk8Rin_6wUqllm1IZ1L9") # Parent is some folder in Shared Drive
+            gdrive.move_folder(folder_obj=folder, parent_id="0AJzA_NPQBPA2Uk9PVA") # Here the parent_id is of My Drive
+        """
+        created_folder = self.create(file_metadata={
+                                    "name": folder_obj["name"],
+                                    "mimeType": "application/vnd.google-apps.folder",
+                                    "parents": [parent_id]
+                                })
+        for file in folder_obj["file_list"]:
+            self.move_file(query={ "file_id": file["id"], "folder_id": created_folder["id"] })
+        for folder in folder_obj["folder_list"]:
+            self.move_folder(folder, created_folder["id"])
+    
+    # TODO: Test for working functionality. Currently getting below error.
+    # dailyLimitExceededUnreg
+    # "Daily Limit for Unauthenticated Use Exceeded. Continued use requires signup."
+    def move_folder_delete(self, folder_obj, parent_id):
+        """ Takes in a 'folder_obj' as returned by the 
+        folder_structure function, the 'parent_id' of the 
+        location where it is to be moved.
+        Moves a folder with the same structure as it exists
+        into another folder of My Drive, Shared Drive or My Drive
+        and Shared Drive themselves. The older folder with no 
+        remaining files are then deleted.
+        """
+        """ Examples
+            folder = gdrive.folder_structure(query={"id": "1hOc6lOnPbCvOxKygi4oLYTzhpyFDj55x"})
+            gdrive.move_folder_delete(folder_obj=folder, parent_id="0AJzA_NPQBPA2Uk9PVA")
+        """
+        self.move_folder(folder_obj=folder_obj, parent_id=parent_id)
+        self.delete(query={"id": folder_obj["id"]})
 
     def delete(self, query):
-        """ Deletes a file with the id as specified in the query dictionary.
+        """ Deletes a file or folder with the 'id' as specified in the query dictionary.
         Raises InvalidIdError of 'id' is not specified.
         """
         """ Examples
