@@ -81,9 +81,9 @@ class GDrive():
             print("Drive Name : {0}     Drive ID : {1}".format(drive["name"], drive["id"]))
         return results["drives"]
 
-    def my_drive_files(self, query={}):
+    def my_drive_files(self, query={"id": None, "fields":"id, name", "max_results":1000, "q": ""}):
         """ Returns all the list of files in My Drive i.e. Google Drive or 
-        any shared drive if id key of it is in the query dictionary.
+        any shared drive(if id key of it is in the query dictionary).
         To list files and folders directly in a file specify the 'q' value
         in query as "'folder_id' in parents".
         Specify fields for the file to retrieve in the query.
@@ -105,7 +105,7 @@ class GDrive():
             has_max_results = True
         else:
             has_max_results = False
-            query["max_results"] = 10
+            query["max_results"] = 1000
         if query.get("fields", None) is None:
             query["fields"] = "id, name"
         if query.get("id", None) is None:
@@ -132,7 +132,7 @@ class GDrive():
         # print(len(files_list))
         return files_list
 
-    def files_in_folder(self, query):
+    def files_in_folder(self, query={"folder_id": None, "q": ""}):
         """ Returns the list of files and folders that are directly under the 
         specified 'folder_id' in the query. Specify the 'id' if the search is in
         a shared drive
@@ -174,7 +174,8 @@ class GDrive():
         folder_obj["file_list"] = file_list
         return folder_obj
 
-    def folder_structure(self, query):
+    # TODO: Passing drive ID of My Drive does not return the required tree folder structure
+    def folder_structure(self, query={"id": None, "drive_id": None}):
         """ Takes in a query dictionary with 'id' as a key of folder
         and 'drive_id' as the key of the Shared Drive if in any.
         Returns a folder dictionary with keys 'id, name,
@@ -209,7 +210,7 @@ class GDrive():
         folder_obj = self.create_tree(folder_obj, files_list)
         return folder_obj
 
-    def file_metadata(self, query={}):
+    def file_metadata(self, query={"id": None, "fields": "id, name", "fetch_all": False}):
         """ Returns the meta data of files by specify id, fields, fetch_all in a dictionary.
         Raises InvalidIdError of 'id' is not specified.
         """
@@ -229,7 +230,7 @@ class GDrive():
             supportsAllDrives=True).execute()
         return file
 
-    def create(self, file_metadata):
+    def create(self, file_metadata={"name": None}):
         """ Creates a file of given name, mimeType and returns the json fields for
         id with other file_metadata as requested. Specify the the parents key with
         'id' of parent in a list to create the file in the specified parent.
@@ -246,7 +247,7 @@ class GDrive():
             supportsAllDrives=True).execute()
         return file
 
-    def move_file(self, query):
+    def move_file(self, query={"file_id": None}):
         """ Specify the file_id which is to be moved and the folder_id
         where it is to be moved. The folder_id can be of any folder
         in My Drive, Shared Drive or the My Drive or Shared Drive itself. 
@@ -296,9 +297,6 @@ class GDrive():
         for folder in folder_obj["folder_list"]:
             self.move_folder(folder, created_folder["id"])
     
-    # TODO: Test for working functionality. Currently getting below error.
-    # dailyLimitExceededUnreg
-    # "Daily Limit for Unauthenticated Use Exceeded. Continued use requires signup."
     def move_folder_delete(self, folder_obj, parent_id):
         """ Takes in a 'folder_obj' as returned by the 
         folder_structure function, the 'parent_id' of the 
@@ -309,13 +307,18 @@ class GDrive():
         remaining files are then deleted.
         """
         """ Examples
-            folder = gdrive.folder_structure(query={"id": "1hOc6lOnPbCvOxKygi4oLYTzhpyFDj55x"})
-            gdrive.move_folder_delete(folder_obj=folder, parent_id="0AJzA_NPQBPA2Uk9PVA")
+            # Moving a My Drive folder to a Shared Drive
+            folder = gdrive.folder_structure(query={"id": "103E1k8UA8hklRZ1600j6vT8AMOItznbU"})
+            gdrive.move_folder_delete(folder, gdrive.shared_drive)
+
+            # Moving Shared drive folder to My Drive
+            folder = gdrive.folder_structure(query={"id": "1tSOgVFoV7G5_jdpKqmUCwJSyc5FSe3Je", "drive_id": gdrive.shared_drive})
+            gdrive.move_folder_delete(folder, gdrive.my_drive)
         """
         self.move_folder(folder_obj=folder_obj, parent_id=parent_id)
         self.delete(query={"id": folder_obj["id"]})
 
-    def delete(self, query):
+    def delete(self, query={"id": None}):
         """ Deletes a file or folder with the 'id' as specified in the query dictionary.
         Raises InvalidIdError of 'id' is not specified.
         """
@@ -324,7 +327,7 @@ class GDrive():
         """
         if query.get("id", None) is None:
             raise InvalidIdError("Invalid ID specified")
-        self.service.files().delete(fileId=query["id"]).execute()
+        self.service.files().delete(fileId=query["id"], supportsAllDrives=True).execute()
 
 if __name__ == '__main__':
     gdrive = GDrive()
