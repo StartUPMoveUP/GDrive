@@ -318,6 +318,23 @@ class GDrive():
         self.move_folder(folder_obj=folder_obj, parent_id=parent_id)
         self.delete(query={"id": folder_obj["id"]})
 
+    def copy(self, query={"id": None, "body": None}):
+        """ Returns a file resource object for the copied file with fields kind,
+        id, name, mimeType. Takes "id" of a file and "body" with any modifications
+        for the copied file metadata.
+        """
+        """ Examples
+            # copying a file
+            print(gdrive.copy(query={"id": "1LI1m1d9I2k0QUwqN2yqRXKcHfghwfkA4"}))
+
+            # Copying a file to different folder, my_drive, shared_drive
+            print(gdrive.copy(query={"id": "1LI1m1d9I2k0QUwqN2yqRXKcHfghwfkA4", "body": {"parents": [gdrive.my_drive]}}))
+        """
+        if query.get("id") is None:
+            raise InvalidIdError("Invalid ID specified")
+        obj = self.service.files().copy(fileId=query["id"], body=query.get("body", None), supportsAllDrives=True).execute()
+        return obj
+
     def delete(self, query={"id": None}):
         """ Deletes a file or folder with the 'id' as specified in the query dictionary.
         Raises InvalidIdError of 'id' is not specified.

@@ -1,0 +1,4 @@
+1. Use batch requests for folder content copy 
+Resources
+ - https://developers.google.com/drive/api/v3/batch#python
+ - https://developers.google.com/resources/api-libraries/documentation/drive/v3/python/latest/index%2Ehtml
